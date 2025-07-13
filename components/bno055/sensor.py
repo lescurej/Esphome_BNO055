@@ -12,7 +12,6 @@ from esphome.const import (
     UNIT_DEGREE_PER_SECOND,
     UNIT_METER_PER_SECOND_SQUARED,
     UNIT_DEGREES,
-    UNIT_GAUSS,
     UNIT_MICROTESLA,
 )
 
