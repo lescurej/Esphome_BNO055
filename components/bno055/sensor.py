@@ -7,7 +7,6 @@ from esphome.const import (
     DEVICE_CLASS_TEMPERATURE,
     ICON_BRIEFCASE_DOWNLOAD,
     ICON_SCREEN_ROTATION,
-    ICON_COMPASS,
     STATE_CLASS_MEASUREMENT,
     UNIT_CELSIUS,
     UNIT_DEGREE_PER_SECOND,
@@ -64,13 +63,13 @@ gyro_schema = sensor.sensor_schema(
 )
 mag_schema = sensor.sensor_schema(
     unit_of_measurement=UNIT_MICROTESLA,
-    icon=ICON_COMPASS,
+    icon="mdi:compass",
     accuracy_decimals=2,
     state_class=STATE_CLASS_MEASUREMENT,
 )
 euler_schema = sensor.sensor_schema(
     unit_of_measurement=UNIT_DEGREES,
-    icon=ICON_COMPASS,
+    icon="mdi:compass",
     accuracy_decimals=2,
     state_class=STATE_CLASS_MEASUREMENT,
 )
@@ -98,13 +97,13 @@ temperature_schema = sensor.sensor_schema(
 )
 magnetic_north_schema = sensor.sensor_schema(
     unit_of_measurement=UNIT_DEGREES,
-    icon=ICON_COMPASS,
+    icon="mdi:compass",
     accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT,
 )
 true_heading_schema = sensor.sensor_schema(
     unit_of_measurement=UNIT_DEGREES,
-    icon=ICON_COMPASS,
+    icon="mdi:compass",
     accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT,
 )
