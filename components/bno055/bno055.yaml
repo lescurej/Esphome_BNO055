@@ -1,0 +1,177 @@
+# ESPHome Configuration for BNO055 IMU Sensor
+# Complete sensor data output
+
+esphome:
+  name: bno055_sensor
+  friendly_name: BNO055 IMU Sensor
+
+# Hardware Configuration
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# I2C Configuration
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  frequency: 400kHz
+
+# WiFi Configuration
+wifi:
+  ssid: "YourWiFiSSID"
+  password: "YourWiFiPassword"
+  ap:
+    ssid: "BNO055_AP"
+    password: "bno055123"
+
+# API for Home Assistant
+api:
+  password: "YourAPIPassword"
+
+# OTA Updates
+ota:
+  password: "YourOTAPassword"
+
+# Logging
+logger:
+  level: INFO
+  logs:
+    bno055: DEBUG
+
+# Sensors Configuration
+sensor:
+  # BNO055 IMU Sensor
+  - platform: bno055
+    address: 0x28
+    magnetic_declination: 0.0  # Adjust for your location
+    update_interval: 1s
+    
+    # Magnetic North (compass direction)
+    magnetic_north:
+      name: "Magnetic North"
+      accuracy_decimals: 1
+      
+    # True Heading (geographic north)
+    true_heading:
+      name: "True Heading"
+      accuracy_decimals: 1
+      
+    # Accelerometer (m/s²)
+    accel_x:
+      name: "Acceleration X"
+      accuracy_decimals: 3
+    accel_y:
+      name: "Acceleration Y"
+      accuracy_decimals: 3
+    accel_z:
+      name: "Acceleration Z"
+      accuracy_decimals: 3
+      
+    # Gyroscope (°/s)
+    gyro_x:
+      name: "Gyro X"
+      accuracy_decimals: 2
+    gyro_y:
+      name: "Gyro Y"
+      accuracy_decimals: 2
+    gyro_z:
+      name: "Gyro Z"
+      accuracy_decimals: 2
+      
+    # Magnetometer (μT)
+    mag_x:
+      name: "Magnetic X"
+      accuracy_decimals: 2
+    mag_y:
+      name: "Magnetic Y"
+      accuracy_decimals: 2
+    mag_z:
+      name: "Magnetic Z"
+      accuracy_decimals: 2
+      
+    # Euler Angles (degrees)
+    euler_x:
+      name: "Euler Heading"
+      accuracy_decimals: 1
+    euler_y:
+      name: "Euler Roll"
+      accuracy_decimals: 1
+    euler_z:
+      name: "Euler Pitch"
+      accuracy_decimals: 1
+      
+    # Linear Acceleration (m/s²)
+    linear_accel_x:
+      name: "Linear Acceleration X"
+      accuracy_decimals: 3
+    linear_accel_y:
+      name: "Linear Acceleration Y"
+      accuracy_decimals: 3
+    linear_accel_z:
+      name: "Linear Acceleration Z"
+      accuracy_decimals: 3
+      
+    # Gravity (m/s²)
+    gravity_x:
+      name: "Gravity X"
+      accuracy_decimals: 3
+    gravity_y:
+      name: "Gravity Y"
+      accuracy_decimals: 3
+    gravity_z:
+      name: "Gravity Z"
+      accuracy_decimals: 3
+      
+    # Quaternion (unitless)
+    quaternion_w:
+      name: "Quaternion W"
+      accuracy_decimals: 4
+    quaternion_x:
+      name: "Quaternion X"
+      accuracy_decimals: 4
+    quaternion_y:
+      name: "Quaternion Y"
+      accuracy_decimals: 4
+    quaternion_z:
+      name: "Quaternion Z"
+      accuracy_decimals: 4
+      
+    # Temperature (°C)
+    temperature:
+      name: "BNO055 Temperature"
+      accuracy_decimals: 1
+
+# Binary Sensors for Status
+binary_sensor:
+  - platform: status
+    name: "BNO055 Status"
+
+# Text Sensors for Device Info
+text_sensor:
+  - platform: version
+    name: "ESPHome Version"
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+    ssid:
+      name: "WiFi SSID"
+    bssid:
+      name: "WiFi BSSID"
+
+# Time Component
+time:
+  - platform: sntp
+    id: my_time
+    timezone: "UTC"
+
+# Automation for Data Logging (optional)
+automation:
+  - trigger:
+      platform: time
+      seconds: 10
+    action:
+      - logger.log:
+          level: INFO
+          format: "BNO055 Data - Heading: %.1f°, Roll: %.1f°, Pitch: %.1f°, Temp: %.1f°C"
+          args: ['id(euler_x).state', 'id(euler_y).state', 'id(euler_z).state', 'id(temperature).state']
