@@ -8,7 +8,7 @@ namespace bno055 {
 static const char *const TAG = "bno055";
 
 const uint8_t BNO055_REGISTER_CHIP_ID = 0x00;
-const uint8_t BNO0555_REGISTER_ACCEL_ID = 0x01;
+const uint8_t BNO055_REGISTER_ACCEL_ID = 0x01;
 const uint8_t BNO055_REGISTER_MAG_ID = 0x02;
 const uint8_t BNO055_REGISTER_GYRO_ID = 0x03;
 const uint8_t BNO055_REGISTER_SW_REV_ID_LSB = 0x04;
