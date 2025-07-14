@@ -289,14 +289,41 @@ void BNO055Component::calculate_speed_distance(float linear_accel_x, float linea
   last_update_time_ = current_time;
   
   if (dt > 0.0f && dt < 1.0f) {
-    velocity_x_ += linear_accel_x * dt;
-    velocity_y_ += linear_accel_y * dt;
-    velocity_z_ += linear_accel_z * dt;
+    float accel_magnitude = sqrt(linear_accel_x * linear_accel_x + linear_accel_y * linear_accel_y + linear_accel_z * linear_accel_z);
     
+    // Seuil de bruit pour éviter l'accumulation d'erreurs
+    const float noise_threshold = 0.1f; // 0.1 m/s²
+    
+    if (accel_magnitude > noise_threshold) {
+      velocity_x_ += linear_accel_x * dt;
+      velocity_y_ += linear_accel_y * dt;
+      velocity_z_ += linear_accel_z * dt;
+    } else {
+      // Réduction progressive de la vitesse quand pas d'accélération
+      velocity_x_ *= 0.95f;
+      velocity_y_ *= 0.95f;
+      velocity_z_ *= 0.95f;
+    }
+    
+    // Seuil minimum pour considérer le mouvement
     float speed_mps = sqrt(velocity_x_ * velocity_x_ + velocity_y_ * velocity_y_ + velocity_z_ * velocity_z_);
+    const float min_speed_threshold = 0.1f; // 0.1 m/s
+    
+    if (speed_mps < min_speed_threshold) {
+      speed_mps = 0.0f;
+      velocity_x_ = 0.0f;
+      velocity_y_ = 0.0f;
+      velocity_z_ = 0.0f;
+    }
+    
     float speed_kmh = speed_mps * 3.6f;
-    float distance_increment = speed_mps * dt;
-    total_distance_ += distance_increment;
+    
+    // Calcul de distance seulement si il y a un mouvement réel
+    float distance_increment = 0.0f;
+    if (speed_mps > min_speed_threshold) {
+      distance_increment = speed_mps * dt;
+      total_distance_ += distance_increment;
+    }
     
     if (this->speed_sensor_ != nullptr)
       this->speed_sensor_->publish_state(speed_kmh);

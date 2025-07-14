@@ -168,10 +168,6 @@ sensor:
 binary_sensor:
   - platform: status
     name: "BNO055 Status"
-  - platform: bno055
-    calibration_complete:
-      name: "BNO055 Calibration Complete"
-      icon: "mdi:check-circle"
 
 # Text Sensors for Device Info
 text_sensor:
