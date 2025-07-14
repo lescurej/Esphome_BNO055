@@ -13,7 +13,7 @@ from esphome.const import (
     UNIT_METER_PER_SECOND_SQUARED,
     UNIT_DEGREES,
     UNIT_MICROTESLA,
-    UNIT_METER_PER_SECOND,
+    UNIT_MPS,
     UNIT_METER,
 )
 
@@ -125,7 +125,7 @@ calibration_complete_schema = binary_sensor.binary_sensor_schema(
 )
 
 speed_schema = sensor.sensor_schema(
-    unit_of_measurement=UNIT_METER_PER_SECOND,
+    unit_of_measurement=UNIT_MPS,
     icon="mdi:speedometer",
     accuracy_decimals=3,
     state_class=STATE_CLASS_MEASUREMENT,
