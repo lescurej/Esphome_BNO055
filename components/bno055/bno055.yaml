@@ -37,7 +37,7 @@ ota:
 logger:
   level: INFO
   logs:
-    bno055: DEBUG
+    bno055: INFO
 
 # Sensors Configuration
 sensor:
@@ -46,6 +46,28 @@ sensor:
     address: 0x28
     magnetic_declination: 0.0  # Adjust for your location
     update_interval: 1s
+    
+    # Speed and Distance (calculated from linear acceleration)
+    speed:
+      name: "BNO055 Speed"
+      accuracy_decimals: 3
+    distance:
+      name: "BNO055 Distance"
+      accuracy_decimals: 3
+    
+    # Calibration sensors (0-3, where 3 = fully calibrated)
+    calibration_system:
+      name: "BNO055 System Calibration"
+      accuracy_decimals: 0
+    calibration_gyro:
+      name: "BNO055 Gyro Calibration"
+      accuracy_decimals: 0
+    calibration_accel:
+      name: "BNO055 Accel Calibration"
+      accuracy_decimals: 0
+    calibration_mag:
+      name: "BNO055 Mag Calibration"
+      accuracy_decimals: 0
     
     # Magnetic North (compass direction)
     magnetic_north:
@@ -101,7 +123,7 @@ sensor:
       name: "Euler Pitch"
       accuracy_decimals: 1
       
-    # Linear Acceleration (m/s²)
+    # Linear Acceleration (m/s²) - Useful for motion detection
     linear_accel_x:
       name: "Linear Acceleration X"
       accuracy_decimals: 3
@@ -146,6 +168,10 @@ sensor:
 binary_sensor:
   - platform: status
     name: "BNO055 Status"
+  - platform: bno055
+    calibration_complete:
+      name: "BNO055 Calibration Complete"
+      icon: "mdi:check-circle"
 
 # Text Sensors for Device Info
 text_sensor:

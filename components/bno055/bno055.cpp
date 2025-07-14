@@ -8,7 +8,7 @@ namespace bno055 {
 static const char *const TAG = "bno055";
 
 const uint8_t BNO055_REGISTER_CHIP_ID = 0x00;
-const uint8_t BNO055_REGISTER_ACCEL_ID = 0x01;
+const uint8_t BNO0555_REGISTER_ACCEL_ID = 0x01;
 const uint8_t BNO055_REGISTER_MAG_ID = 0x02;
 const uint8_t BNO055_REGISTER_GYRO_ID = 0x03;
 const uint8_t BNO055_REGISTER_SW_REV_ID_LSB = 0x04;
@@ -73,6 +73,12 @@ const uint8_t BNO055_REGISTER_SYS_TRIGGER = 0x3F;
 const uint8_t BNO055_REGISTER_TEMP_SOURCE = 0x40;
 const uint8_t BNO055_REGISTER_AXIS_MAP_CONFIG = 0x41;
 const uint8_t BNO055_REGISTER_AXIS_MAP_SIGN = 0x42;
+const uint8_t BNO055_REGISTER_CALIB_DATA = 0x55;
+const uint8_t BNO055_REGISTER_CALIB_OFFSET_ACCEL = 0x55;
+const uint8_t BNO055_REGISTER_CALIB_OFFSET_MAG = 0x5B;
+const uint8_t BNO055_REGISTER_CALIB_OFFSET_GYRO = 0x61;
+const uint8_t BNO055_REGISTER_CALIB_RADIUS_ACCEL = 0x67;
+const uint8_t BNO055_REGISTER_CALIB_RADIUS_MAG = 0x69;
 
 const uint8_t BNO055_CHIP_ID = 0xA0;
 const uint8_t BNO055_ACCEL_ID = 0xFB;
@@ -195,14 +201,27 @@ void BNO055Component::dump_config() {
   LOG_SENSOR("  ", "Quaternion Z", this->quaternion_z_sensor_);
   LOG_SENSOR("  ", "Temperature", this->temperature_sensor_);
   LOG_SENSOR("  ", "Magnetic North", this->magnetic_north_sensor_);
+  LOG_SENSOR("  ", "True Heading", this->true_heading_sensor_);
+  LOG_SENSOR("  ", "Speed", this->speed_sensor_);
+  LOG_SENSOR("  ", "Distance", this->distance_sensor_);
+  LOG_SENSOR("  ", "Calibration System", this->calibration_system_sensor_);
+  LOG_SENSOR("  ", "Calibration Gyro", this->calibration_gyro_sensor_);
+  LOG_SENSOR("  ", "Calibration Accel", this->calibration_accel_sensor_);
+  LOG_SENSOR("  ", "Calibration Mag", this->calibration_mag_sensor_);
 }
 
 float BNO055Component::calculate_magnetic_north(float mag_x, float mag_y, float mag_z, float accel_x, float accel_y, float accel_z) {
   float roll = atan2(accel_y, accel_z);
   float pitch = atan2(-accel_x, sqrt(accel_y * accel_y + accel_z * accel_z));
   
-  float mag_x_comp = mag_x * cos(pitch) + mag_z * sin(pitch);
-  float mag_y_comp = mag_x * sin(roll) * sin(pitch) + mag_y * cos(roll) - mag_z * sin(roll) * cos(pitch);
+  float cos_roll = cos(roll);
+  float sin_roll = sin(roll);
+  float cos_pitch = cos(pitch);
+  float sin_pitch = sin(pitch);
+  
+  // Correct transformation for BNO055 coordinate system
+  float mag_x_comp = mag_x * cos_pitch - mag_z * sin_pitch;
+  float mag_y_comp = mag_x * sin_roll * sin_pitch + mag_y * cos_roll + mag_z * sin_roll * cos_pitch;
   
   float heading = atan2(mag_y_comp, mag_x_comp);
   
@@ -225,8 +244,78 @@ float BNO055Component::calculate_true_heading(float magnetic_heading) {
   return true_heading;
 }
 
+void BNO055Component::read_calibration_status() {
+  uint8_t calib_status;
+  if (!this->read_byte(BNO055_REGISTER_CALIB_STAT, &calib_status)) {
+    return;
+  }
+  
+  uint8_t system_calib = (calib_status >> 6) & 0x03;
+  uint8_t gyro_calib = (calib_status >> 4) & 0x03;
+  uint8_t accel_calib = (calib_status >> 2) & 0x03;
+  uint8_t mag_calib = calib_status & 0x03;
+  
+  if (this->calibration_system_sensor_ != nullptr)
+    this->calibration_system_sensor_->publish_state(system_calib);
+  if (this->calibration_gyro_sensor_ != nullptr)
+    this->calibration_gyro_sensor_->publish_state(gyro_calib);
+  if (this->calibration_accel_sensor_ != nullptr)
+    this->calibration_accel_sensor_->publish_state(accel_calib);
+  if (this->calibration_mag_sensor_ != nullptr)
+    this->calibration_mag_sensor_->publish_state(mag_calib);
+  
+  bool was_complete = calibration_complete_;
+  calibration_complete_ = (system_calib == 3) && (gyro_calib == 3) && (accel_calib == 3) && (mag_calib == 3);
+  
+  // Publish calibration complete binary sensor
+  if (this->calibration_complete_binary_sensor_ != nullptr) {
+    this->calibration_complete_binary_sensor_->publish_state(calibration_complete_);
+  }
+  
+  if (calibration_complete_ && !was_complete) {
+    ESP_LOGI(TAG, "BNO055 calibration complete!");
+  } else if (!calibration_complete_ && was_complete) {
+    ESP_LOGW(TAG, "BNO055 calibration lost!");
+  }
+  
+  if (!calibration_complete_) {
+    ESP_LOGD(TAG, "Calibration status - System: %d, Gyro: %d, Accel: %d, Mag: %d", 
+             system_calib, gyro_calib, accel_calib, mag_calib);
+  }
+}
+
+void BNO055Component::calculate_speed_distance(float linear_accel_x, float linear_accel_y, float linear_accel_z) {
+  uint32_t current_time = millis();
+  float dt = 0.0f;
+  
+  if (!first_update_) {
+    dt = (current_time - last_update_time_) / 1000.0f;
+  } else {
+    first_update_ = false;
+  }
+  
+  last_update_time_ = current_time;
+  
+  if (dt > 0.0f && dt < 1.0f) {
+    velocity_x_ += linear_accel_x * dt;
+    velocity_y_ += linear_accel_y * dt;
+    velocity_z_ += linear_accel_z * dt;
+    
+    float speed = sqrt(velocity_x_ * velocity_x_ + velocity_y_ * velocity_y_ + velocity_z_ * velocity_z_);
+    float distance_increment = speed * dt;
+    total_distance_ += distance_increment;
+    
+    if (this->speed_sensor_ != nullptr)
+      this->speed_sensor_->publish_state(speed);
+    if (this->distance_sensor_ != nullptr)
+      this->distance_sensor_->publish_state(total_distance_);
+  }
+}
+
 void BNO055Component::update() {
   ESP_LOGV(TAG, "Updating BNO055 sensors");
+  
+  read_calibration_status();
   
   uint8_t data[22];
   if (!this->read_bytes(BNO055_REGISTER_ACCEL_DATA_X_LSB, data, 22)) {
@@ -307,7 +396,9 @@ void BNO055Component::update() {
   float gravity_z_f = gravity_z / 100.0f;
   float temp_f = temp;
   
-  float magnetic_north = calculate_magnetic_north(mag_x_f, mag_y_f, mag_z_f, accel_x_f, accel_y_f, accel_z_f);
+  calculate_speed_distance(linear_accel_x_f, linear_accel_y_f, linear_accel_z_f);
+  
+  float magnetic_north = euler_h_f;
   float true_heading = calculate_true_heading(magnetic_north);
   
   ESP_LOGD(TAG,
