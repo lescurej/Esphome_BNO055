@@ -13,8 +13,8 @@ from esphome.const import (
     UNIT_METER_PER_SECOND_SQUARED,
     UNIT_DEGREES,
     UNIT_MICROTESLA,
-    UNIT_MPS,
-    UNIT_METER,
+    UNIT_KILOMETER_PER_HOUR,
+    UNIT_KILOMETER,
 )
 
 DEPENDENCIES = ["i2c"]
@@ -125,14 +125,14 @@ calibration_complete_schema = binary_sensor.binary_sensor_schema(
 )
 
 speed_schema = sensor.sensor_schema(
-    unit_of_measurement=UNIT_MPS,
+    unit_of_measurement=UNIT_KILOMETER_PER_HOUR,
     icon="mdi:speedometer",
-    accuracy_decimals=3,
+    accuracy_decimals=1,
     state_class=STATE_CLASS_MEASUREMENT,
 )
 
 distance_schema = sensor.sensor_schema(
-    unit_of_measurement=UNIT_METER,
+    unit_of_measurement=UNIT_KILOMETER,
     icon="mdi:map-marker-distance",
     accuracy_decimals=3,
     state_class=STATE_CLASS_MEASUREMENT,

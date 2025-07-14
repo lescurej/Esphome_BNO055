@@ -301,14 +301,15 @@ void BNO055Component::calculate_speed_distance(float linear_accel_x, float linea
     velocity_y_ += linear_accel_y * dt;
     velocity_z_ += linear_accel_z * dt;
     
-    float speed = sqrt(velocity_x_ * velocity_x_ + velocity_y_ * velocity_y_ + velocity_z_ * velocity_z_);
-    float distance_increment = speed * dt;
+    float speed_mps = sqrt(velocity_x_ * velocity_x_ + velocity_y_ * velocity_y_ + velocity_z_ * velocity_z_);
+    float speed_kmh = speed_mps * 3.6f;
+    float distance_increment = speed_mps * dt;
     total_distance_ += distance_increment;
     
     if (this->speed_sensor_ != nullptr)
-      this->speed_sensor_->publish_state(speed);
+      this->speed_sensor_->publish_state(speed_kmh);
     if (this->distance_sensor_ != nullptr)
-      this->distance_sensor_->publish_state(total_distance_);
+      this->distance_sensor_->publish_state(total_distance_ / 1000.0f);
   }
 }
 
