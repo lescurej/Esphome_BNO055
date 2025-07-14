@@ -2,7 +2,6 @@
 
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
-#include "esphome/components/binary_sensor.h"
 #include "esphome/components/i2c/i2c.h"
 
 namespace esphome {
@@ -42,18 +41,13 @@ class BNO055Component : public PollingComponent, public i2c::I2CDevice {
   void set_true_heading_sensor(sensor::Sensor *true_heading_sensor) { true_heading_sensor_ = true_heading_sensor; }
   void set_magnetic_declination(float declination) { magnetic_declination_ = declination; }
   
-  // Speed and distance sensors
   void set_speed_sensor(sensor::Sensor *speed_sensor) { speed_sensor_ = speed_sensor; }
   void set_distance_sensor(sensor::Sensor *distance_sensor) { distance_sensor_ = distance_sensor; }
   
-  // Calibration sensors
   void set_calibration_system_sensor(sensor::Sensor *calibration_system_sensor) { calibration_system_sensor_ = calibration_system_sensor; }
   void set_calibration_gyro_sensor(sensor::Sensor *calibration_gyro_sensor) { calibration_gyro_sensor_ = calibration_gyro_sensor; }
   void set_calibration_accel_sensor(sensor::Sensor *calibration_accel_sensor) { calibration_accel_sensor_ = calibration_accel_sensor; }
   void set_calibration_mag_sensor(sensor::Sensor *calibration_mag_sensor) { calibration_mag_sensor_ = calibration_mag_sensor; }
-  
-  // Calibration complete binary sensor
-  void set_calibration_complete_binary_sensor(binary_sensor::BinarySensor *calibration_complete_binary_sensor) { calibration_complete_binary_sensor_ = calibration_complete_binary_sensor; }
 
  protected:
   float calculate_magnetic_north(float mag_x, float mag_y, float mag_z, float accel_x, float accel_y, float accel_z);
@@ -92,11 +86,9 @@ class BNO055Component : public PollingComponent, public i2c::I2CDevice {
   sensor::Sensor *calibration_gyro_sensor_{nullptr};
   sensor::Sensor *calibration_accel_sensor_{nullptr};
   sensor::Sensor *calibration_mag_sensor_{nullptr};
-  binary_sensor::BinarySensor *calibration_complete_binary_sensor_{nullptr};
   float magnetic_declination_{0.0f};
   bool calibration_complete_{false};
   
-  // Speed and distance calculation variables
   float velocity_x_{0.0f};
   float velocity_y_{0.0f};
   float velocity_z_{0.0f};

@@ -255,32 +255,24 @@ void BNO055Component::read_calibration_status() {
   uint8_t accel_calib = (calib_status >> 2) & 0x03;
   uint8_t mag_calib = calib_status & 0x03;
   
-  if (this->calibration_system_sensor_ != nullptr)
+  if (this->calibration_system_sensor_ != nullptr) {
     this->calibration_system_sensor_->publish_state(system_calib);
-  if (this->calibration_gyro_sensor_ != nullptr)
+  }
+  if (this->calibration_gyro_sensor_ != nullptr) {
     this->calibration_gyro_sensor_->publish_state(gyro_calib);
-  if (this->calibration_accel_sensor_ != nullptr)
+  }
+  if (this->calibration_accel_sensor_ != nullptr) {
     this->calibration_accel_sensor_->publish_state(accel_calib);
-  if (this->calibration_mag_sensor_ != nullptr)
+  }
+  if (this->calibration_mag_sensor_ != nullptr) {
     this->calibration_mag_sensor_->publish_state(mag_calib);
+  }
   
-  bool was_complete = calibration_complete_;
+  bool was_calibration_complete = calibration_complete_;
   calibration_complete_ = (system_calib == 3) && (gyro_calib == 3) && (accel_calib == 3) && (mag_calib == 3);
   
-  // Publish calibration complete binary sensor
-  if (this->calibration_complete_binary_sensor_ != nullptr) {
-    this->calibration_complete_binary_sensor_->publish_state(calibration_complete_);
-  }
-  
-  if (calibration_complete_ && !was_complete) {
-    ESP_LOGI(TAG, "BNO055 calibration complete!");
-  } else if (!calibration_complete_ && was_complete) {
-    ESP_LOGW(TAG, "BNO055 calibration lost!");
-  }
-  
-  if (!calibration_complete_) {
-    ESP_LOGD(TAG, "Calibration status - System: %d, Gyro: %d, Accel: %d, Mag: %d", 
-             system_calib, gyro_calib, accel_calib, mag_calib);
+  if (calibration_complete_ != was_calibration_complete) {
+    ESP_LOGI(TAG, "Calibration complete: %s", calibration_complete_ ? "true" : "false");
   }
 }
 
