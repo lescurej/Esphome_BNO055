@@ -384,8 +384,5 @@ void BNO055Component::update() {
 
 float BNO055Component::get_setup_priority() const { return setup_priority::DATA; }
 
-void BNO055Component::set_true_heading_sensor(sensor::Sensor *true_heading_sensor) { true_heading_sensor_ = true_heading_sensor; }
-void BNO055Component::set_magnetic_declination(float declination) { magnetic_declination_ = declination; }
-
 }  // namespace bno055
 }  // namespace esphome 
