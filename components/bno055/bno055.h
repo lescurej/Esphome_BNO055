@@ -55,6 +55,14 @@ class BNO055Component : public PollingComponent, public i2c::I2CDevice {
   void read_calibration_status();
   void calculate_speed_distance(float linear_accel_x, float linear_accel_y, float linear_accel_z);
   
+  // Filtre de moyenne mobile pour l'accélération
+  static const int FILTER_SIZE = 10;
+  float accel_x_buffer_[FILTER_SIZE];
+  float accel_y_buffer_[FILTER_SIZE];
+  float accel_z_buffer_[FILTER_SIZE];
+  int filter_index_{0};
+  bool filter_initialized_{false};
+  
   sensor::Sensor *accel_x_sensor_{nullptr};
   sensor::Sensor *accel_y_sensor_{nullptr};
   sensor::Sensor *accel_z_sensor_{nullptr};
