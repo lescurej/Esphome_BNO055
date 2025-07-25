@@ -276,89 +276,68 @@ void BNO055Component::read_calibration_status() {
   }
 }
 
-void BNO055Component::calculate_speed_distance(float linear_accel_x, float linear_accel_y, float linear_accel_z) {
-  // Filtre de moyenne mobile sur l'accélération
-  if (!filter_initialized_) {
-    for (int i = 0; i < FILTER_SIZE; i++) {
-      accel_x_buffer_[i] = linear_accel_x;
-      accel_y_buffer_[i] = linear_accel_y;
-      accel_z_buffer_[i] = linear_accel_z;
-    }
-    filter_initialized_ = true;
-  }
-  
-  accel_x_buffer_[filter_index_] = linear_accel_x;
-  accel_y_buffer_[filter_index_] = linear_accel_y;
-  accel_z_buffer_[filter_index_] = linear_accel_z;
-  filter_index_ = (filter_index_ + 1) % FILTER_SIZE;
-  
-  // Calcul de la moyenne mobile
-  float filtered_accel_x = 0.0f;
-  float filtered_accel_y = 0.0f;
-  float filtered_accel_z = 0.0f;
-  
-  for (int i = 0; i < FILTER_SIZE; i++) {
-    filtered_accel_x += accel_x_buffer_[i];
-    filtered_accel_y += accel_y_buffer_[i];
-    filtered_accel_z += accel_z_buffer_[i];
-  }
-  
-  filtered_accel_x /= FILTER_SIZE;
-  filtered_accel_y /= FILTER_SIZE;
-  filtered_accel_z /= FILTER_SIZE;
-  
+void BNO055Component::calculate_speed_distance(float linear_accel_x, float linear_accel_y, float linear_accel_z,
+                                               float quat_w, float quat_x, float quat_y, float quat_z) {
+  // 1. Rotate linear acceleration into world frame using quaternion
+  auto rotate_vector = [](float x, float y, float z, float qw, float qx, float qy, float qz) {
+    float qw2 = qw * qw;
+    float qx2 = qx * qx;
+    float qy2 = qy * qy;
+    float qz2 = qz * qz;
+
+    float vx = (1 - 2 * qy2 - 2 * qz2) * x + (2 * qx * qy - 2 * qw * qz) * y + (2 * qx * qz + 2 * qw * qy) * z;
+    float vy = (2 * qx * qy + 2 * qw * qz) * x + (1 - 2 * qx2 - 2 * qz2) * y + (2 * qy * qz - 2 * qw * qx) * z;
+    float vz = (2 * qx * qz - 2 * qw * qy) * x + (2 * qy * qz + 2 * qw * qx) * y + (1 - 2 * qx2 - 2 * qy2) * z;
+
+    return std::make_tuple(vx, vy, vz);
+  };
+
+  auto [accel_x_world, accel_y_world, accel_z_world] = rotate_vector(
+    linear_accel_x, linear_accel_y, linear_accel_z, quat_w, quat_x, quat_y, quat_z
+  );
+
   uint32_t current_time = millis();
   float dt = 0.0f;
-  
+
   if (!first_update_) {
     dt = (current_time - last_update_time_) / 1000.0f;
   } else {
     first_update_ = false;
   }
-  
   last_update_time_ = current_time;
-  
-  if (dt > 0.0f && dt < 1.0f) {
-    float accel_magnitude = sqrt(filtered_accel_x * filtered_accel_x + filtered_accel_y * filtered_accel_y + filtered_accel_z * filtered_accel_z);
-    
-    // Seuil de bruit avec filtre
-    const float noise_threshold = 0.2f; // 0.2 m/s²
-    
-    if (accel_magnitude > noise_threshold) {
-      velocity_x_ += filtered_accel_x * dt;
-      velocity_y_ += filtered_accel_y * dt;
-      velocity_z_ += filtered_accel_z * dt;
-    } else {
-      // Réduction progressive de la vitesse
-      velocity_x_ *= 0.9f;
-      velocity_y_ *= 0.9f;
-      velocity_z_ *= 0.9f;
-    }
-    
-    // Seuil de vitesse
+
+  if (dt > 0.0f && dt < 1.0f && calibration_complete_) {
+    // 2. Bias correction
+    const float bias_threshold = 0.03f; // 0.03 m/s²
+    if (fabs(accel_x_world) < bias_threshold) accel_x_world = 0.0f;
+    if (fabs(accel_y_world) < bias_threshold) accel_y_world = 0.0f;
+    if (fabs(accel_z_world) < bias_threshold) accel_z_world = 0.0f;
+
+    // 3. Integrate velocity
+    velocity_x_ += accel_x_world * dt;
+    velocity_y_ += accel_y_world * dt;
+    velocity_z_ += accel_z_world * dt;
+
     float speed_mps = sqrt(velocity_x_ * velocity_x_ + velocity_y_ * velocity_y_ + velocity_z_ * velocity_z_);
-    const float min_speed_threshold = 0.3f; // 0.3 m/s = 1.08 km/h
-    
-    if (speed_mps < min_speed_threshold) {
-      speed_mps = 0.0f;
-      velocity_x_ = 0.0f;
-      velocity_y_ = 0.0f;
-      velocity_z_ = 0.0f;
-    }
-    
     float speed_kmh = speed_mps * 3.6f;
-    
-    // Distance seulement si mouvement significatif
-    float distance_increment = 0.0f;
-    if (speed_mps > min_speed_threshold && accel_magnitude > noise_threshold) {
-      distance_increment = speed_mps * dt;
-      total_distance_ += distance_increment;
+
+    // 4. Gentle velocity decay to minimize drift
+    const float decay = 0.998f;
+    velocity_x_ *= decay;
+    velocity_y_ *= decay;
+    velocity_z_ *= decay;
+
+    // 5. Speed threshold
+    if (speed_mps < 0.1f) {
+      speed_kmh = 0.0f;
+    } else {
+      total_distance_ += speed_mps * dt;
     }
-    
+
     if (this->speed_sensor_ != nullptr)
       this->speed_sensor_->publish_state(speed_kmh);
     if (this->distance_sensor_ != nullptr)
-      this->distance_sensor_->publish_state(total_distance_ / 1000.0f);
+      this->distance_sensor_->publish_state(total_distance_ / 1000.0f);  // in km
   }
 }
 
@@ -446,8 +425,9 @@ void BNO055Component::update() {
   float gravity_z_f = gravity_z / 100.0f;
   float temp_f = temp;
   
-  calculate_speed_distance(linear_accel_x_f, linear_accel_y_f, linear_accel_z_f);
-  
+calculate_speed_distance(linear_accel_x_f, linear_accel_y_f, linear_accel_z_f,
+                         quat_w_f, quat_x_f, quat_y_f, quat_z_f);
+                           
   float magnetic_north = euler_h_f;
   float true_heading = calculate_true_heading(magnetic_north);
   
