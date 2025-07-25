@@ -54,6 +54,11 @@ class BNO055Component : public PollingComponent, public i2c::I2CDevice {
   float calculate_true_heading(float magnetic_heading);
   void read_calibration_status();
   void calculate_speed_distance(float linear_accel_x, float linear_accel_y, float linear_accel_z, float quat_w, float quat_x, float quat_y, float quat_z);
+
+  uint8_t calibration_data_[22] = {0};
+  void save_calibration_data();
+  void restore_calibration_data();
+
   
   // Filtre de moyenne mobile pour l'accélération
   static const int FILTER_SIZE = 10;

@@ -151,6 +151,11 @@ void BNO055Component::setup() {
     return;
   }
 
+  if (this->calibration_data_[0] != 0x00 || this->calibration_data_[21] != 0x00) {
+    ESP_LOGI(TAG, "Restoring previous calibration data...");
+    this->restore_calibration_data();
+  }
+
   // Set to CONFIG mode before changing anything
   this->write_byte(BNO055_REGISTER_OPR_MODE, BNO055_OPR_MODE_CONFIG);
   delay(25);
@@ -177,6 +182,21 @@ void BNO055Component::setup() {
   delay(30);
 
   ESP_LOGCONFIG(TAG, "BNO055 setup complete");
+}
+
+void BNO055Component::save_calibration_data() {
+  this->read_bytes(0x55, this->calibration_data_, 22);
+  ESP_LOGI(TAG, "Saved calibration data");
+}
+
+void BNO055Component::restore_calibration_data() {
+  this->write_byte(BNO055_REGISTER_OPR_MODE, BNO055_OPR_MODE_CONFIG);
+  delay(25);
+  this->write_bytes(0x55, this->calibration_data_, 22);
+  ESP_LOGI(TAG, "Restored calibration data");
+  delay(10);
+  this->write_byte(BNO055_REGISTER_OPR_MODE, BNO055_OPR_MODE_NDOF);
+  delay(30);
 }
 
 
@@ -283,6 +303,11 @@ void BNO055Component::read_calibration_status() {
   
   if (calibration_complete_ != was_calibration_complete) {
     ESP_LOGI(TAG, "Calibration complete: %s", calibration_complete_ ? "true" : "false");
+  }
+
+  if (calibration_complete_ && !was_calibration_complete) {
+    ESP_LOGI(TAG, "Calibration complete: true, saving to buffer");
+    this->save_calibration_data();
   }
 }
 
