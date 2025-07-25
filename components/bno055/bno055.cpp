@@ -116,16 +116,24 @@ const uint8_t BNO055_UNIT_ORI_WINDOWS = 0x80;
 
 void BNO055Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up BNO055...");
-  
-  uint8_t chip_id;
-  if (!this->read_byte(BNO055_REGISTER_CHIP_ID, &chip_id) || chip_id != BNO055_CHIP_ID) {
-    ESP_LOGE(TAG, "BNO055 not found at address 0x%02X", this->address_);
+
+  // Reset device via SYS_TRIGGER
+  ESP_LOGI(TAG, "Performing BNO055 soft reset...");
+  this->write_byte(BNO055_REGISTER_SYS_TRIGGER, 0x20);
+  delay(650);  // Wait for chip to reboot
+
+  // Re-read chip ID after reset
+  uint8_t chip_id = 0;
+  this->read_byte(BNO055_REGISTER_CHIP_ID, &chip_id);
+  if (chip_id != BNO055_CHIP_ID) {
+    ESP_LOGE(TAG, "BNO055 chip ID mismatch after reset (got 0x%02X)", chip_id);
     this->mark_failed();
     return;
   }
-  
-  ESP_LOGCONFIG(TAG, "BNO055 found with chip ID: 0x%02X", chip_id);
-  
+
+  ESP_LOGCONFIG(TAG, "BNO055 chip ID verified: 0x%02X", chip_id);
+
+  // Confirm all sub-sensor IDs
   uint8_t accel_id, mag_id, gyro_id;
   if (!this->read_byte(BNO055_REGISTER_ACCEL_ID, &accel_id) ||
       !this->read_byte(BNO055_REGISTER_MAG_ID, &mag_id) ||
@@ -134,41 +142,43 @@ void BNO055Component::setup() {
     this->mark_failed();
     return;
   }
-  
+
   ESP_LOGCONFIG(TAG, "Sensor IDs - Accel: 0x%02X, Mag: 0x%02X, Gyro: 0x%02X", accel_id, mag_id, gyro_id);
-  
+
   if (accel_id != BNO055_ACCEL_ID || mag_id != BNO055_MAG_ID || gyro_id != BNO055_GYRO_ID) {
     ESP_LOGE(TAG, "Invalid sensor IDs");
     this->mark_failed();
     return;
   }
-  
+
+  // Set to CONFIG mode before changing anything
+  this->write_byte(BNO055_REGISTER_OPR_MODE, BNO055_OPR_MODE_CONFIG);
+  delay(25);
+
+  // Set power mode
+  ESP_LOGCONFIG(TAG, "Setting power mode to NORMAL");
+  this->write_byte(BNO055_REGISTER_PWR_MODE, BNO055_PWR_MODE_NORMAL);
+  delay(10);
+
+  // Ensure we're on Page 0
+  this->write_byte(BNO055_REGISTER_PAGE_ID, 0x00);
+
+  // Configure units (m/s², °/s, °, °C, Android orientation)
+  uint8_t unit_sel = BNO055_UNIT_ACCEL_MS2 |
+                     BNO055_UNIT_GYRO_DPS |
+                     BNO055_UNIT_EULER_DEG |
+                     BNO055_UNIT_TEMP_C |
+                     BNO055_UNIT_ORI_ANDROID;
+  this->write_byte(BNO055_REGISTER_UNIT_SEL, unit_sel);
+
+  // Set to NDOF fusion mode
   ESP_LOGCONFIG(TAG, "Setting operation mode to NDOF");
-  if (!this->write_byte(BNO055_REGISTER_OPR_MODE, BNO055_OPR_MODE_NDOF)) {
-    ESP_LOGE(TAG, "Failed to set operation mode");
-    this->mark_failed();
-    return;
-  }
-  
+  this->write_byte(BNO055_REGISTER_OPR_MODE, BNO055_OPR_MODE_NDOF);
   delay(30);
-  
-  ESP_LOGCONFIG(TAG, "Setting power mode to normal");
-  if (!this->write_byte(BNO055_REGISTER_PWR_MODE, BNO055_PWR_MODE_NORMAL)) {
-    ESP_LOGE(TAG, "Failed to set power mode");
-    this->mark_failed();
-    return;
-  }
-  
-  ESP_LOGCONFIG(TAG, "Setting units");
-  uint8_t unit_sel = BNO055_UNIT_ACCEL_MS2 | BNO055_UNIT_GYRO_DPS | BNO055_UNIT_EULER_DEG | BNO055_UNIT_TEMP_C | BNO055_UNIT_ORI_ANDROID;
-  if (!this->write_byte(BNO055_REGISTER_UNIT_SEL, unit_sel)) {
-    ESP_LOGE(TAG, "Failed to set units");
-    this->mark_failed();
-    return;
-  }
-  
+
   ESP_LOGCONFIG(TAG, "BNO055 setup complete");
 }
+
 
 void BNO055Component::dump_config() {
   ESP_LOGCONFIG(TAG, "BNO055:");
