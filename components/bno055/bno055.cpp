@@ -365,6 +365,16 @@ void BNO055Component::update() {
   
   read_calibration_status();
   
+  uint8_t raw_mag[6];
+  if (this->read_bytes(BNO055_REGISTER_MAG_DATA_X_LSB, raw_mag, 6)) {
+    int16_t raw_x = (raw_mag[1] << 8) | raw_mag[0];
+    int16_t raw_y = (raw_mag[3] << 8) | raw_mag[2];
+    int16_t raw_z = (raw_mag[5] << 8) | raw_mag[4];
+    ESP_LOGI(TAG, "RAW MAGNETOMETER: x=%d y=%d z=%d", raw_x, raw_y, raw_z);
+  } else {
+    ESP_LOGW(TAG, "Failed to read magnetometer registers directly");
+  }
+  
   uint8_t data[22];
   if (!this->read_bytes(BNO055_REGISTER_ACCEL_DATA_X_LSB, data, 22)) {
     this->status_set_warning();
