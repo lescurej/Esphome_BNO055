@@ -103,6 +103,13 @@ class BNO055Component : public PollingComponent, public i2c::I2CDevice {
   float total_distance_{0.0f};
   uint32_t last_update_time_{0};
   bool first_update_{true};
+    // For high-resolution timing
+  uint32_t last_update_time_us_{0};
+
+  // For quaternion-based gravity compensation
+  float gravity_x_{0.0f};
+  float gravity_y_{0.0f};
+  float gravity_z_{0.0f};
 };
 
 }  // namespace bno055
