@@ -278,6 +278,13 @@ void BNO055Component::read_calibration_status() {
 
 void BNO055Component::calculate_speed_distance(float linear_accel_x, float linear_accel_y, float linear_accel_z,
                                                float quat_w, float quat_x, float quat_y, float quat_z) {
+  // 0. Check if quaternion is normalized (within tolerance)
+  float norm = sqrt(quat_w * quat_w + quat_x * quat_x + quat_y * quat_y + quat_z * quat_z);
+  if (fabs(norm - 1.0f) > 0.01f) {
+    ESP_LOGW(TAG, "Invalid quaternion norm: %.4f — skipping speed update", norm);
+    return;
+  }
+
   // 1. Rotate linear acceleration into world frame using quaternion
   auto rotate_vector = [](float x, float y, float z, float qw, float qx, float qy, float qz) {
     float qw2 = qw * qw;
@@ -296,50 +303,62 @@ void BNO055Component::calculate_speed_distance(float linear_accel_x, float linea
     linear_accel_x, linear_accel_y, linear_accel_z, quat_w, quat_x, quat_y, quat_z
   );
 
-  uint32_t current_time = millis();
+  uint32_t current_time_us = micros();
   float dt = 0.0f;
 
   if (!first_update_) {
-    dt = (current_time - last_update_time_) / 1000.0f;
+    dt = (current_time_us - last_update_time_us_) / 1e6f;  // convert µs to seconds
   } else {
     first_update_ = false;
   }
-  last_update_time_ = current_time;
+  last_update_time_us_ = current_time_us;
 
   if (dt > 0.0f && dt < 1.0f && calibration_complete_) {
-    // 2. Bias correction
-    const float bias_threshold = 0.03f; // 0.03 m/s²
+    // 2. Bias threshold (to eliminate sensor noise)
+    const float bias_threshold = 0.03f;  // m/s²
     if (fabs(accel_x_world) < bias_threshold) accel_x_world = 0.0f;
     if (fabs(accel_y_world) < bias_threshold) accel_y_world = 0.0f;
     if (fabs(accel_z_world) < bias_threshold) accel_z_world = 0.0f;
 
-    // 3. Integrate velocity
-    velocity_x_ += accel_x_world * dt;
-    velocity_y_ += accel_y_world * dt;
-    velocity_z_ += accel_z_world * dt;
+    // 3. Detect stationary state using accel magnitude ≈ 1g (within small range)
+    float accel_mag = sqrt(
+      (accel_x_world + gravity_x_) * (accel_x_world + gravity_x_) +
+      (accel_y_world + gravity_y_) * (accel_y_world + gravity_y_) +
+      (accel_z_world + gravity_z_) * (accel_z_world + gravity_z_)
+    );
+    bool is_stationary = fabs(accel_mag - 9.81f) < 0.1f;  // Within ±0.1 m/s² of gravity
+
+    if (is_stationary) {
+      velocity_x_ = 0.0f;
+      velocity_y_ = 0.0f;
+      velocity_z_ = 0.0f;
+    } else {
+      // 4. Integrate velocity
+      velocity_x_ += accel_x_world * dt;
+      velocity_y_ += accel_y_world * dt;
+      velocity_z_ += accel_z_world * dt;
+
+      // 5. Decay to suppress drift
+      const float decay = 0.998f;
+      velocity_x_ *= decay;
+      velocity_y_ *= decay;
+      velocity_z_ *= decay;
+    }
 
     float speed_mps = sqrt(velocity_x_ * velocity_x_ + velocity_y_ * velocity_y_ + velocity_z_ * velocity_z_);
-    float speed_kmh = speed_mps * 3.6f;
+    float speed_kmh = (speed_mps < 0.1f) ? 0.0f : speed_mps * 3.6f;
 
-    // 4. Gentle velocity decay to minimize drift
-    const float decay = 0.998f;
-    velocity_x_ *= decay;
-    velocity_y_ *= decay;
-    velocity_z_ *= decay;
-
-    // 5. Speed threshold
-    if (speed_mps < 0.1f) {
-      speed_kmh = 0.0f;
-    } else {
+    if (speed_kmh > 0.0f) {
       total_distance_ += speed_mps * dt;
     }
 
     if (this->speed_sensor_ != nullptr)
       this->speed_sensor_->publish_state(speed_kmh);
     if (this->distance_sensor_ != nullptr)
-      this->distance_sensor_->publish_state(total_distance_ / 1000.0f);  // in km
+      this->distance_sensor_->publish_state(total_distance_ / 1000.0f);  // km
   }
 }
+
 
 void BNO055Component::update() {
   ESP_LOGV(TAG, "Updating BNO055 sensors");
